@@ -63,8 +63,26 @@ export async function analyze(formData: FormData) {
             }
 
             // Handle markdown code blocks if present
-            const cleanContent = contentString.replace(/```json\n|\n```/g, "").replace(/```/g, "");
-            parsed = JSON.parse(cleanContent);
+            const codeBlockRegex = /```json\n([\s\S]*?)\n```|```\n([\s\S]*?)\n```/;
+            const match = contentString.match(codeBlockRegex);
+
+            if (match) {
+                // Use the content inside the code block
+                const jsonContent = match[1] || match[2];
+                parsed = JSON.parse(jsonContent);
+            } else {
+                // Fallback: Try to find the first '{' and last '}'
+                const firstBrace = contentString.indexOf('{');
+                const lastBrace = contentString.lastIndexOf('}');
+
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    const jsonCandidate = contentString.substring(firstBrace, lastBrace + 1);
+                    parsed = JSON.parse(jsonCandidate);
+                } else {
+                    // Try parsing the whole string as a last resort
+                    parsed = JSON.parse(contentString);
+                }
+            }
         } catch (e) {
             console.error("Failed to parse agent output", lastMessage.content);
             throw new Error("Agent failed to produce valid JSON");
